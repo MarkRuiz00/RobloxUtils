@@ -1,0 +1,366 @@
+
+repeat task.wait() until game:IsLoaded() and game.Players and game.Players.LocalPlayer and game.Players.LocalPlayer.Character
+
+if getgenv().AntiAFKActive then
+    warn("[Anti-AFK] Already running. Destroying previous instance...")
+    if game.CoreGui:FindFirstChild("AntiAFKGui") then
+        game.CoreGui.AntiAFKGui:Destroy()
+    end
+    getgenv().AntiAFKActive = false
+    getgenv().TimerRunning = false
+    task.wait(0.5)
+end
+
+getgenv().AntiAFKActive = true
+
+-- Servicios
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualUser = game:GetService("VirtualUser")
+local Stats = game:GetService("Stats")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Configuración de la GUI y actualizaciones
+local Config = {
+    UpdateInterval = 1,         -- Intervalo para actualizar ping
+    FPSUpdateRate = 0.1,        -- Cada cuántos segundos actualizar FPS
+    DragSmoothness = 0.04       -- Suavidad del arrastre de la ventana
+}
+
+-- Creación de la GUI
+local ScreenGui, MainFrame, CloseButton, TimerValueLabel, FPSValueLabel, PingValueLabel, StatusIndicator, StatusLabel
+
+ScreenGui, MainFrame, CloseButton, TimerValueLabel, FPSValueLabel, PingValueLabel, StatusIndicator, StatusLabel = (function()
+    local gui = Instance.new("ScreenGui")
+    local mainFrame = Instance.new("Frame")
+    local corner = Instance.new("UICorner")
+    local stroke = Instance.new("UIStroke")
+    local topBar = Instance.new("Frame")
+    local title = Instance.new("TextLabel")
+    local closeBtn = Instance.new("TextButton")
+    local divider = Instance.new("Frame")
+    local statsFrame = Instance.new("Frame")
+    local timerLabel = Instance.new("TextLabel")
+    local timerValue = Instance.new("TextLabel")
+    local fpsLabel = Instance.new("TextLabel")
+    local fpsValue = Instance.new("TextLabel")
+    local pingLabel = Instance.new("TextLabel")
+    local pingValue = Instance.new("TextLabel")
+    local statusFrame = Instance.new("Frame")
+    local statusIndicator = Instance.new("Frame")
+    local statusLabel = Instance.new("TextLabel")
+
+    gui.Name = "AntiAFKGui"
+    gui.Parent = CoreGui
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.ResetOnSpawn = false
+
+    mainFrame.Name = "MainFrame"
+    mainFrame.Parent = gui
+    mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Position = UDim2.new(0.02, 0, 0.3, 0)
+    mainFrame.Size = UDim2.new(0, 260, 0, 160)
+    mainFrame.Active = true
+
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = mainFrame
+
+    stroke.Color = Color3.fromRGB(40, 40, 40)
+    stroke.Thickness = 1
+    stroke.Parent = mainFrame
+
+    topBar.Name = "TopBar"
+    topBar.Parent = mainFrame
+    topBar.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+    topBar.BorderSizePixel = 0
+    topBar.Size = UDim2.new(1, 0, 0, 32)
+
+    title.Name = "Title"
+    title.Parent = topBar
+    title.BackgroundTransparency = 1
+    title.Position = UDim2.new(0, 12, 0, 0)
+    title.Size = UDim2.new(0.75, 0, 1, 0)
+    title.Font = Enum.Font.SourceSans
+    title.Text = "Greaky | ANTI-AFK SYSTEM"
+    title.TextColor3 = Color3.fromRGB(220, 220, 220)
+    title.TextSize = 13
+    title.TextXAlignment = Enum.TextXAlignment.Left
+
+    closeBtn.Name = "CloseButton"
+    closeBtn.Parent = topBar
+    closeBtn.BackgroundTransparency = 1
+    closeBtn.Position = UDim2.new(1, -32, 0, 0)
+    closeBtn.Size = UDim2.new(0, 32, 0, 32)
+    closeBtn.Font = Enum.Font.SourceSans
+    closeBtn.Text = "X"
+    closeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    closeBtn.TextSize = 18
+
+    divider.Name = "Divider"
+    divider.Parent = mainFrame
+    divider.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    divider.BorderSizePixel = 0
+    divider.Position = UDim2.new(0, 0, 0, 32)
+    divider.Size = UDim2.new(1, 0, 0, 1)
+
+    statsFrame.Name = "StatsFrame"
+    statsFrame.Parent = mainFrame
+    statsFrame.BackgroundTransparency = 1
+    statsFrame.Position = UDim2.new(0, 12, 0, 45)
+    statsFrame.Size = UDim2.new(1, -24, 0, 75)
+
+    timerLabel.Name = "TimerLabel"
+    timerLabel.Parent = statsFrame
+    timerLabel.BackgroundTransparency = 1
+    timerLabel.Position = UDim2.new(0, 0, 0, 0)
+    timerLabel.Size = UDim2.new(0, 80, 0, 20)
+    timerLabel.Font = Enum.Font.SourceSans
+    timerLabel.Text = "UPTIME"
+    timerLabel.TextColor3 = Color3.fromRGB(140, 140, 140)
+    timerLabel.TextSize = 12
+    timerLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    timerValue.Name = "TimerValue"
+    timerValue.Parent = statsFrame
+    timerValue.BackgroundTransparency = 1
+    timerValue.Position = UDim2.new(0, 80, 0, 0)
+    timerValue.Size = UDim2.new(1, -80, 0, 20)
+    timerValue.Font = Enum.Font.SourceSansSemibold
+    timerValue.Text = "00:00:00"
+    timerValue.TextColor3 = Color3.fromRGB(240, 240, 240)
+    timerValue.TextSize = 12
+    timerValue.TextXAlignment = Enum.TextXAlignment.Right
+
+    fpsLabel.Name = "FPSLabel"
+    fpsLabel.Parent = statsFrame
+    fpsLabel.BackgroundTransparency = 1
+    fpsLabel.Position = UDim2.new(0, 0, 0, 25)
+    fpsLabel.Size = UDim2.new(0, 80, 0, 20)
+    fpsLabel.Font = Enum.Font.SourceSans
+    fpsLabel.Text = "FPS"
+    fpsLabel.TextColor3 = Color3.fromRGB(140, 140, 140)
+    fpsLabel.TextSize = 12
+    fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    fpsValue.Name = "FPSValue"
+    fpsValue.Parent = statsFrame
+    fpsValue.BackgroundTransparency = 1
+    fpsValue.Position = UDim2.new(0, 80, 0, 25)
+    fpsValue.Size = UDim2.new(1, -80, 0, 20)
+    fpsValue.Font = Enum.Font.SourceSansSemibold
+    fpsValue.Text = "0"
+    fpsValue.TextColor3 = Color3.fromRGB(240, 240, 240)
+    fpsValue.TextSize = 12
+    fpsValue.TextXAlignment = Enum.TextXAlignment.Right
+
+    pingLabel.Name = "PingLabel"
+    pingLabel.Parent = statsFrame
+    pingLabel.BackgroundTransparency = 1
+    pingLabel.Position = UDim2.new(0, 0, 0, 50)
+    pingLabel.Size = UDim2.new(0, 80, 0, 20)
+    pingLabel.Font = Enum.Font.SourceSans
+    pingLabel.Text = "PING"
+    pingLabel.TextColor3 = Color3.fromRGB(140, 140, 140)
+    pingLabel.TextSize = 12
+    pingLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    pingValue.Name = "PingValue"
+    pingValue.Parent = statsFrame
+    pingValue.BackgroundTransparency = 1
+    pingValue.Position = UDim2.new(0, 80, 0, 50)
+    pingValue.Size = UDim2.new(1, -80, 0, 20)
+    pingValue.Font = Enum.Font.SourceSansSemibold
+    pingValue.Text = "0 ms"
+    pingValue.TextColor3 = Color3.fromRGB(240, 240, 240)
+    pingValue.TextSize = 12
+    pingValue.TextXAlignment = Enum.TextXAlignment.Right
+
+    statusFrame.Name = "StatusFrame"
+    statusFrame.Parent = mainFrame
+    statusFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+    statusFrame.BorderSizePixel = 0
+    statusFrame.Position = UDim2.new(0, 12, 1, -30)
+    statusFrame.Size = UDim2.new(1, -24, 0, 22)
+
+    local statusCorner = Instance.new("UICorner")
+    statusCorner.CornerRadius = UDim.new(0, 3)
+    statusCorner.Parent = statusFrame
+
+    statusIndicator.Name = "StatusIndicator"
+    statusIndicator.Parent = statusFrame
+    statusIndicator.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+    statusIndicator.BorderSizePixel = 0
+    statusIndicator.Position = UDim2.new(0, 6, 0.5, -3)
+    statusIndicator.Size = UDim2.new(0, 6, 0, 6)
+
+    local indicatorCorner = Instance.new("UICorner")
+    indicatorCorner.CornerRadius = UDim.new(1, 0)
+    indicatorCorner.Parent = statusIndicator
+
+    statusLabel.Name = "StatusLabel"
+    statusLabel.Parent = statusFrame
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Position = UDim2.new(0, 18, 0, 0)
+    statusLabel.Size = UDim2.new(1, -18, 1, 0)
+    statusLabel.Font = Enum.Font.SourceSans
+    statusLabel.Text = "Active"
+    statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    statusLabel.TextSize = 11
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    return gui, mainFrame, closeBtn, timerValue, fpsValue, pingValue, statusIndicator, statusLabel
+end)()
+
+-- Notificación de inicio
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Greaky | Anti-AFK System",
+    Text = "System initialized successfully",
+    Duration = 3
+})
+
+-- Funcionalidad de arrastrar la ventana
+local function MakeDraggable(frame)
+    local dragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local startPos = nil
+
+    local function updateInput(input)
+        local delta = input.Position - dragStart
+        local position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+        TweenService:Create(frame, TweenInfo.new(Config.DragSmoothness, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Position = position}):Play()
+    end
+
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            updateInput(input)
+        end
+    end)
+end
+
+MakeDraggable(MainFrame)
+
+-- Botón de cierre
+CloseButton.MouseButton1Click:Connect(function()
+    getgenv().AntiAFKActive = false
+    getgenv().TimerRunning = false
+    ScreenGui:Destroy()
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Greaky | Anti-AFK System",
+        Text = "System disabled",
+        Duration = 3
+    })
+end)
+
+-- Efectos hover en botón de cierre
+CloseButton.MouseEnter:Connect(function()
+    TweenService:Create(CloseButton, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+end)
+
+CloseButton.MouseLeave:Connect(function()
+    TweenService:Create(CloseButton, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(180, 180, 180)}):Play()
+end)
+
+-- Anti-AFK principal: simula actividad cuando Roblox detecta inactividad
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new()) -- Simula movimiento del mouse
+
+    -- Efecto visual breve en el indicador de estado
+    TweenService:Create(StatusIndicator, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+    task.wait(0.15)
+    TweenService:Create(StatusIndicator, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(46, 204, 113)}):Play()
+end)
+
+-- Cálculo de FPS en tiempo real
+local frameTimes = {}
+local lastFPSUpdate = 0
+
+RunService.RenderStepped:Connect(function()
+    local currentTime = tick()
+    
+    -- Limpiar tiempos antiguos (>1 segundo)
+    for i = #frameTimes, 1, -1 do
+        if frameTimes[i] < currentTime - 1 then
+            table.remove(frameTimes, i)
+        end
+    end
+    
+    table.insert(frameTimes, currentTime)
+    
+    if currentTime - lastFPSUpdate >= Config.FPSUpdateRate then
+        FPSValueLabel.Text = tostring(#frameTimes)
+        lastFPSUpdate = currentTime
+    end
+end)
+
+-- Actualización del ping
+task.spawn(function()
+    while getgenv().AntiAFKActive do
+        local success, ping = pcall(function()
+            return Stats.PerformanceStats.Ping:GetValue()
+        end)
+        
+        if success and ping then
+            PingValueLabel.Text = math.floor(ping) .. " ms"
+        else
+            PingValueLabel.Text = "N/A"
+        end
+        
+        task.wait(Config.UpdateInterval)
+    end
+end)
+
+-- Contador de tiempo activo (uptime)
+local seconds = 0
+local minutes = 0
+local hours = 0
+getgenv().TimerRunning = true
+
+task.spawn(function()
+    while getgenv().TimerRunning do
+        task.wait(1)
+        if getgenv().AntiAFKActive then
+            seconds += 1
+            if seconds >= 60 then
+                seconds = 0
+                minutes += 1
+            end
+            if minutes >= 60 then
+                minutes = 0
+                hours += 1
+            end
+            TimerValueLabel.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+        end
+    end
+end)
